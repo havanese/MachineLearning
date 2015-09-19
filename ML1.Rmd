@@ -1,0 +1,65 @@
+---
+title: "Machine Learning Project"
+author: "Chris Rosen"
+date: "September 18, 2015"
+output: html_document
+---
+This project analyzes data from human activity research gathered from onbody physical tracking devices. The goal is to distinguish how well test subjects were performing a biceps curl. They were asked to perform it at five different levels. Class A is the biceps curl done correctly. Class B is throwing the elbows forward, CLass C is lifting the dumbell halfway, Cass D is lowering the dumbell halfway and Class D is throwing the hips forward.
+The goal of the project is to correctly predict which class a particular set of accelerometer data belongs to.
+
+The first step was to load the training set and create partitions for training and cross validation. The first 7 columns were removed since they contained no relevant data, leaving 153 variables. Then the columns were removed that were mostly empty or NA, leaving 53 variables:
+```{r}
+library(caret)
+gone<-c("NA","")
+traindata<-read.csv("C:/users/chris/desktop/MLclass/traindata/pml-training.csv",na.strings=gone)
+#remove the fist 7 columns which are not needed for training
+traindata2 <- traindata[,-(1:7),drop=FALSE]  
+# if most of the data in a feature is missing, remove the feature
+cutoff=nrow(traindata2)*.90
+traindata3<-traindata2[,colSums(is.na(traindata2))<cutoff]
+#convert the Classe variable to type factors: A,B,C,D,E,F
+traindata3$classe<-factor(traindata3$classe)
+#create partitions for training and cross validation data
+inTrain<-createDataPartition(traindata3$classe,p=0.75,list=FALSE)
+training<-traindata3[inTrain,]
+cv<-traindata3[-inTrain,]
+```
+
+Three different methods from the caret package were used to train the data: Random Forest, Boosting and a Linear Classifier. The Random Forest took approximately an hour to train. Boosting was much faster and the Linear Classifier was completed in a second.
+Predictions and the Confusion matrix were performed.
+
+
+```{r eval=FALSE}
+#use random forest, boosting, and a linear classifier
+rf<-train(classe~.,data=training,method="rf")
+boost<-train(classe~.,data=training,method="gbm")
+linear<-train(classe~.,data=training,method="lda")
+#predictions
+rfresult<-predict(rf,cv)
+boostresult<-predict(boost,cv)
+linearresult<-predict(linear,cv)
+#confusion matrices
+confusionMatrix(rfresult,cv$classe)
+confusionMatrix(boostresult,cv$classe)
+confusionMatrix(linearresult,cv$classe)
+
+```
+
+
+
+```{r}
+rf<-train(classe~.,data=training,method="rf")
+rfresult<-predict(rf,cv)
+confusionMatrix(rfresult,cv$classe)
+```
+The random forest had the best accuracy at 99% (Boosting had an accuracy of 96%, Linear 70%). Since Random Forest was the most accurate, it was used to predict the 20 test cases, all of which it classified correctly.
+```{r eval=FALSE}
+#bring in the test data for the 20 predictions and clean it
+testdata<-read.csv("C:/users/chris/desktop/MLclass/testdata/pml-testing.csv",na.strings=gone)
+testdata2 <- testdata[,-(1:7),drop=FALSE]  
+cutofftest=nrow(testdata2)*.90
+testdata3<-testdata2[,colSums(is.na(testdata2))<cutofftest]
+#get some answers using the Random Forest model
+answers<-predict(rf,testdata3)
+```
+The expected out of sample error for the random forest model is .06% indicating that this model is good at classifying the human movement data.
